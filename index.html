@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>校内ルート案内 3Dモデル</title>
+<style>
+:root{--bg:#eef2f6;--fg:#1d2733;--pn:#fffd;--bd:#b9c4d0;--ac:#2b7fd4;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161c24;--fg:#e6edf5;--pn:#222c38e8;--bd:#3b4958;--ac:#5aa6f0}}
+:root[data-theme="dark"]{--bg:#161c24;--fg:#e6edf5;--pn:#222c38e8;--bd:#3b4958;--ac:#5aa6f0}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:system-ui,"Hiragino Sans","Noto Sans JP",sans-serif;overflow:hidden}
+#cv{display:block;width:100%;height:100%;touch-action:none}
+#ui{position:absolute;left:8px;top:calc(8px + env(safe-area-inset-top,0px));background:var(--pn);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;font-size:13px;max-width:210px}
+#ui h1{font-size:14px;margin:0 0 6px}
+.row{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+button{font:inherit;background:transparent;color:var(--fg);border:1px solid var(--bd);border-radius:6px;padding:3px 8px;cursor:pointer}
+button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+label{display:block;margin:4px 0}
+input[type=range]{width:100%}
+#lg{position:absolute;right:8px;top:calc(8px + env(safe-area-inset-top,0px));max-width:120px;line-height:1.5;background:var(--pn);border:1px solid var(--bd);border-radius:10px;padding:6px 10px;font-size:12px}
+#lg i{display:inline-block;width:11px;height:11px;margin-right:5px;vertical-align:-1px;border:1px solid #0004}
+#rt{position:absolute;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));max-width:430px;max-height:40vh;overflow:auto;background:var(--pn);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;font-size:13px}
+select{font:inherit;max-width:42%;background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:6px;padding:3px}
+#stp{margin:4px 0 0 18px;padding:0}#sum{font-weight:600;margin:4px 0}
+#ut{display:none;float:right;margin-left:10px}
+#stt{display:none;white-space:nowrap}
+@media (max-width:640px){
+ body{display:flex;flex-direction:column}
+ #cv{flex:1;min-height:0;height:auto}
+ #rt{position:static;max-width:none;max-height:44vh;max-height:44dvh;border-radius:14px 14px 0 0;border-width:1px 0 0;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));font-size:14px}
+ #ut{display:inline-block}
+ #uib,#lg{display:none}
+ body.open #uib,body.open #lg{display:block}
+ #lg{top:calc(60px + env(safe-area-inset-top,0px))}
+ button,select{min-height:38px}
+ select{max-width:40%}
+ #stp li{padding:3px 0}
+ #stp{display:none}
+ #rt.open #stp{display:block}
+ #stt{display:inline-block}
+ #sum{margin:2px 0}
+}
+</style></head><body>
+<canvas id="cv"></canvas>
+<div id="ui"><h1>校内3Dモデル<button id="ut" aria-label="表示設定">⚙</button></h1><div id="uib">
+<div class="row" id="fl"></div>
+<div class="row"><button id="v1">斜め</button><button id="v2">真上</button></div>
+<label><input type="checkbox" id="lb" checked> 部屋名を表示</label>
+<label><input type="checkbox" id="ce"> 天井を表示</label>
+<label><input type="checkbox" id="dr" checked> ドアを表示</label>
+<label>階の間隔 <input type="range" id="ex" min="0" max="12" step="0.5" value="3"></label>
+<div style="opacity:.7;font-size:11px">左・右ドラッグ:回転<br>中ボタンドラッグ:平行移動<br>ホイール:拡大縮小<br>2本指:拡大縮小+平行移動</div></div></div>
+<div id="rt"><div class="row"><select id="fr"></select><button id="sw">⇄</button><select id="to"></select></div><div class="row">経由 <select id="vi"></select></div><div class="row" id="tabs"></div><div class="row" style="align-items:center;justify-content:space-between"><div id="sum">出発地と目的地を選んでください</div><button id="stt">道順 ▲</button></div><ol id="stp"></ol></div>
+<div id="lg"><i style="background:#767676"></i>部屋 <i style="background:#c9d1da"></i>廊下 <i style="background:#38b5ff"></i>屋外通路 <i style="background:#ffbb55"></i>屋内階段 <i style="background:#c96ee8"></i>屋外階段/地下道 <i style="background:#c47a2c"></i>ドア <i style="background:#2a9d8f"></i>押戸・引き戸</div>
+<script type="application/json" id="campus">{"meta": {"source": "学苑祭パンフレット 1〜4階マップ(1456x816px座標)", "unit": "rect=[x,y,w,h] px。1px=1/12m(仮)、原点=[728,408]", "floorHeight": 3.6, "roomHeight": 3, "note": "ドアは平面図の黒い四角から自動抽出。links: 教室は隣接する廊下にのみ接続、屋内外(廊下⇔屋外/屋外階段)はドア経由のみ、階段は上下階を接続(要確認)"}, "floors": [{"level": 1, "id": "1F", "rooms": [{"id": "1F-R01", "name": "3B", "rect": [591, 56, 104, 84]}, {"id": "1F-R02", "name": "講義室1", "rect": [695, 56, 104, 84]}, {"id": "1F-R03", "name": "3A", "rect": [799, 56, 103, 84]}, {"id": "1F-R04", "name": "16", "rect": [10, 318, 102, 84]}, {"id": "1F-R05", "name": "15", "rect": [114, 318, 102, 84]}, {"id": "1F-R06", "name": "14", "rect": [218, 318, 102, 84]}, {"id": "1F-R07", "name": "13", "rect": [322, 318, 102, 84]}, {"id": "1F-R08", "name": "12", "rect": [426, 318, 102, 84]}, {"id": "1F-R09", "name": "11", "rect": [530, 318, 102, 84]}, {"id": "1F-R10", "name": "相談室", "rect": [917, 318, 101, 84]}, {"id": "1F-R11", "name": "高校保健室", "rect": [1020, 318, 102, 84]}, {"id": "1F-R12", "name": "中学保健", "rect": [1124, 318, 48, 84]}, {"id": "1F-R13", "name": "家庭科職", "rect": [1174, 318, 48, 84]}, {"id": "1F-R14", "name": "家庭科室", "rect": [1224, 318, 102, 84]}, {"id": "1F-R15", "name": "書道室", "rect": [439, 612, 100, 82]}, {"id": "1F-R16", "name": "書道準備", "rect": [542, 612, 50, 82]}, {"id": "1F-R17", "name": "事務員室", "rect": [594, 612, 50, 82]}, {"id": "1F-R18", "name": "自販機", "rect": [669, 612, 28, 72]}, {"id": "1F-R19", "name": "会議室", "rect": [959, 606, 110, 82]}, {"id": "1F-R20", "name": "応接室", "rect": [1071, 606, 76, 82]}, {"id": "1F-R21", "name": "校長室", "rect": [1149, 606, 72, 82]}, {"id": "1F-R22", "name": "相談室", "rect": [1223, 606, 80, 82]}, {"id": "1F-R23", "name": "事務室", "rect": [1349, 609, 66, 136]}], "walk": [{"id": "1F-C01", "type": "corridor", "rect": [593, 140, 308, 53]}, {"id": "1F-C02", "type": "corridor", "rect": [690, 193, 68, 210]}, {"id": "1F-C03", "type": "corridor", "rect": [10, 402, 1316, 54]}, {"id": "1F-C04", "type": "corridor", "rect": [632, 318, 58, 84]}, {"id": "1F-C05", "type": "corridor", "rect": [1296, 456, 30, 50]}, {"id": "1F-C06", "type": "corridor", "rect": [917, 402, 409, 54]}, {"id": "1F-C07", "type": "corridor", "name": "昇降口", "rect": [690, 456, 226, 76]}, {"id": "1F-C08", "type": "corridor", "rect": [959, 690, 303, 52]}, {"id": "1F-C09", "type": "corridor", "rect": [1262, 690, 86, 118]}, {"id": "1F-C10", "type": "corridor", "rect": [1349, 745, 106, 60]}, {"id": "1F-C11", "type": "corridor", "rect": [540, 694, 52, 84]}, {"id": "1F-C12", "type": "corridor", "rect": [437, 694, 104, 30]}, {"id": "1F-W13", "type": "walkway", "rect": [527, 0, 66, 253]}, {"id": "1F-W14", "type": "walkway", "rect": [593, 205, 96, 48]}, {"id": "1F-W15", "type": "walkway", "rect": [648, 456, 41, 286]}, {"id": "1F-W16", "type": "walkway", "name": "ピロティ", "rect": [690, 532, 226, 210], "roof": true}, {"id": "1F-W17", "type": "walkway", "rect": [916, 456, 41, 286]}, {"id": "1F-W18", "type": "walkway", "rect": [593, 694, 96, 48]}, {"id": "1F-W19", "type": "walkway", "rect": [907, 141, 66, 52]}, {"id": "1F-G20", "type": "ground", "name": "部室棟", "rect": [34, 56, 103, 242], "blocked": true}, {"id": "1F-G21", "type": "ground", "name": "テニスコート", "rect": [158, 56, 168, 242], "blocked": true}, {"id": "1F-G22", "type": "ground", "name": "パティオ", "rect": [122, 475, 325, 137]}, {"id": "1F-X01", "type": "ground", "rect": [-69, -191, 446, 210], "blocked": true, "h": 9, "name": "体育館"}, {"id": "1F-X02", "type": "ground", "rect": [377, -149, 34, 50], "blocked": true, "name": "グラウンド"}, {"id": "1F-X03", "type": "walkway", "rect": [-28, 20, 439, 32]}, {"id": "1F-X04", "type": "walkway", "rect": [377, -99, 34, 151]}, {"id": "1F-X10", "type": "walkway", "rect": [137, 52, 21, 266]}, {"id": "1F-X11", "type": "walkway", "rect": [10, 298, 616, 20], "name": "中庭"}, {"id": "1F-X12", "type": "walkway", "rect": [61, 457, 582, 18]}, {"id": "1F-X13", "type": "walkway", "rect": [61, 475, 61, 134]}, {"id": "1F-X14", "type": "walkway", "rect": [447, 475, 196, 134]}, {"id": "1F-X15", "type": "walkway", "rect": [376, 40, 198, 140], "diag": [[394, 60], [556, 160], 34]}]}, {"level": 2, "id": "2F", "rooms": [{"id": "2F-R01", "name": "1B", "rect": [591, 56, 104, 84]}, {"id": "2F-R02", "name": "講義室2", "rect": [695, 56, 104, 84]}, {"id": "2F-R03", "name": "1A", "rect": [799, 56, 103, 84]}, {"id": "2F-R04", "name": "36", "rect": [10, 318, 102, 84]}, {"id": "2F-R05", "name": "35", "rect": [114, 318, 102, 84]}, {"id": "2F-R06", "name": "34", "rect": [218, 318, 102, 84]}, {"id": "2F-R07", "name": "33", "rect": [322, 318, 102, 84]}, {"id": "2F-R08", "name": "32", "rect": [426, 318, 102, 84]}, {"id": "2F-R09", "name": "31", "rect": [530, 318, 102, 84]}, {"id": "2F-R10", "name": "37", "rect": [917, 318, 101, 84]}, {"id": "2F-R11", "name": "閉架書庫", "rect": [1020, 318, 102, 84]}, {"id": "2F-R12", "name": "図書室", "rect": [1124, 318, 202, 84]}, {"id": "2F-R13", "name": "美術室", "rect": [440, 608, 100, 108]}, {"id": "2F-R14", "name": "美術準備", "rect": [543, 608, 102, 82]}, {"id": "2F-R15", "name": "職員室", "rect": [959, 597, 367, 83]}, {"id": "2F-R16", "name": "進路相談", "rect": [1328, 597, 70, 83]}, {"id": "2F-R17", "name": "放送室", "rect": [1151, 735, 76, 83]}], "walk": [{"id": "2F-C01", "type": "corridor", "rect": [593, 140, 308, 53]}, {"id": "2F-C02", "type": "corridor", "rect": [690, 193, 68, 210]}, {"id": "2F-C03", "type": "corridor", "rect": [10, 402, 1316, 54]}, {"id": "2F-C04", "type": "corridor", "rect": [1296, 456, 30, 50]}, {"id": "2F-C05", "type": "corridor", "rect": [917, 402, 409, 54]}, {"id": "2F-C06", "type": "corridor", "rect": [648, 456, 68, 277]}, {"id": "2F-C07", "type": "corridor", "rect": [717, 628, 241, 52]}, {"id": "2F-C08", "type": "corridor", "rect": [917, 680, 41, 53]}, {"id": "2F-C09", "type": "corridor", "rect": [959, 680, 497, 53]}, {"id": "2F-C10", "type": "corridor", "rect": [543, 690, 51, 83]}, {"id": "2F-C11", "type": "corridor", "rect": [595, 690, 53, 42]}, {"id": "2F-W12", "type": "walkway", "rect": [907, 141, 66, 52]}]}, {"level": 3, "id": "3F", "rooms": [{"id": "3F-R01", "name": "2B", "rect": [591, 56, 104, 84]}, {"id": "3F-R02", "name": "講義室3", "rect": [695, 56, 104, 84]}, {"id": "3F-R03", "name": "2A", "rect": [799, 56, 103, 84]}, {"id": "3F-R04", "name": "26", "rect": [10, 318, 102, 84]}, {"id": "3F-R05", "name": "25", "rect": [114, 318, 102, 84]}, {"id": "3F-R06", "name": "24", "rect": [218, 318, 102, 84]}, {"id": "3F-R07", "name": "23", "rect": [322, 318, 102, 84]}, {"id": "3F-R08", "name": "22", "rect": [426, 318, 102, 84]}, {"id": "3F-R09", "name": "21", "rect": [530, 318, 102, 84]}, {"id": "3F-R10", "name": "国語職員", "rect": [917, 318, 102, 84]}, {"id": "3F-R11", "name": "英語職員", "rect": [1020, 318, 102, 84]}, {"id": "3F-R12", "name": "講義室5", "rect": [1124, 318, 100, 84]}, {"id": "3F-R13", "name": "講義室6", "rect": [1226, 318, 100, 84]}, {"id": "3F-R14", "name": "コンピュータ室", "rect": [440, 608, 100, 84]}, {"id": "3F-R15", "name": "謎", "rect": [542, 608, 50, 84]}, {"id": "3F-R16", "name": "数学職員", "rect": [596, 608, 50, 84]}, {"id": "3F-R17", "name": "物理実験室", "rect": [932, 608, 108, 104]}, {"id": "3F-R18", "name": "物理準備", "rect": [1042, 608, 60, 104]}, {"id": "3F-R19", "name": "物理職員", "rect": [1104, 608, 58, 104]}, {"id": "3F-R20", "name": "地歴職員", "rect": [1165, 608, 58, 104]}, {"id": "3F-R21", "name": "地歴公民", "rect": [1226, 608, 86, 104]}, {"id": "3F-R22", "name": "階段教室", "rect": [1312, 608, 144, 136]}], "walk": [{"id": "3F-C01", "type": "corridor", "rect": [593, 140, 308, 53]}, {"id": "3F-C02", "type": "corridor", "rect": [690, 193, 68, 210]}, {"id": "3F-C03", "type": "corridor", "rect": [10, 402, 1316, 54]}, {"id": "3F-C04", "type": "corridor", "rect": [1296, 456, 30, 50]}, {"id": "3F-C05", "type": "corridor", "rect": [917, 402, 409, 54]}, {"id": "3F-C06", "type": "corridor", "rect": [648, 456, 68, 238]}, {"id": "3F-C07", "type": "corridor", "rect": [596, 692, 716, 53]}, {"id": "3F-C08", "type": "corridor", "rect": [439, 692, 102, 26]}, {"id": "3F-C09", "type": "corridor", "rect": [543, 692, 51, 81]}, {"id": "3F-W10", "type": "walkway", "rect": [907, 141, 66, 52]}]}, {"level": 4, "id": "4F", "rooms": [{"id": "4F-R01", "name": "音楽室", "rect": [440, 608, 100, 108]}, {"id": "4F-R02", "name": "音楽職員", "rect": [542, 608, 50, 82]}, {"id": "4F-R03", "name": "合奏室", "rect": [596, 608, 76, 82]}, {"id": "4F-R04", "name": "倉庫", "rect": [676, 610, 58, 80]}, {"id": "4F-R05", "name": "生物実験室", "rect": [738, 610, 128, 80]}, {"id": "4F-R06", "name": "生物準備", "rect": [870, 610, 95, 80]}, {"id": "4F-R07", "name": "生物職員", "rect": [970, 607, 82, 84]}, {"id": "4F-R08", "name": "化学実験室", "rect": [1054, 605, 106, 86]}, {"id": "4F-R09", "name": "化学準備", "rect": [1163, 607, 60, 84]}, {"id": "4F-R10", "name": "地学室", "rect": [1225, 607, 92, 136]}], "walk": [{"id": "4F-C01", "type": "corridor", "rect": [596, 692, 628, 52]}, {"id": "4F-C02", "type": "corridor", "rect": [543, 692, 51, 81]}]}], "stairs": [{"id": "ST-center", "label": "中央階段", "type": "indoor", "landing": "N", "floors": {"1": [758, 310, 66, 92], "2": [758, 310, 66, 92], "3": [758, 310, 66, 92]}}, {"id": "ST-kasei", "label": "家庭科室・図書室・講義室6前の階段", "type": "indoor", "landing": "W", "floors": {"1": [1229, 454, 66, 52], "2": [1229, 454, 66, 52], "3": [1229, 454, 66, 52]}, "quiet": true}, {"id": "ST-west-front", "label": "書道室・美術室・コンピュータ室・音楽室前の階段", "type": "indoor", "landing": "W", "floors": {"1": [437, 724, 104, 50], "2": [439, 717, 103, 56], "3": [439, 718, 103, 55], "4": [439, 717, 103, 56]}}, {"id": "ST-east-front", "label": "会議室・職員室・物理実験室前の階段", "type": "indoor", "landing": "W", "floors": {"1": [997, 742, 72, 58], "2": [997, 733, 72, 55], "3": [997, 745, 72, 55], "4": [997, 745, 72, 55]}, "quiet": true}, {"id": "ST-ne-outdoor", "label": "2A・1A・3A横の屋外階段", "type": "outdoor", "landing": "N", "floors": {"1": [905, 56, 66, 84], "2": [905, 56, 66, 84], "3": [905, 56, 66, 84]}}, {"id": "ST-w-outdoor", "label": "26・36・16前の屋外階段", "type": "outdoor", "landing": "W", "floors": {"1": [10, 456, 52, 55], "2": [10, 456, 52, 55], "3": [10, 456, 52, 55]}}], "voids": [{"id": "VOID-center", "label": "吹き抜け", "rect": [632, 318, 58, 84], "floors": [2, 3]}], "underpass": {"id": "UP-1", "label": "地下道", "level": 1, "entrances": [{"rect": [527, 253, 66, 56], "dir": 1}, {"rect": [529, 464, 66, 47], "dir": -1}], "tunnel": [529, 309, 64, 155], "quiet": true}, "links": [["1F-C01", "1F-W13", "door"], ["1F-C01", "1F-W19", "door"], ["1F-C01", "1F-W13", "door"], ["1F-C01", "1F-W19", "door"], ["1F-C02", "1F-W14", "door"], ["1F-C02", "1F-W14", "door"], ["1F-C03", "1F-W15", "door"], ["1F-C03", "1F-W15", "door"], ["1F-C03", "1F-C06", "door"], ["1F-C03", "1F-C07", "door"], ["1F-C03", "1F-W17", "door"], ["1F-C06", "1F-C07", "door"], ["1F-C06", "1F-W17", "door"], ["1F-C07", "1F-W17", "door"], ["1F-C03", "1F-C06", "door"], ["1F-C03", "1F-W17", "door"], ["1F-C06", "1F-W17", "door"], ["1F-C03", "ST-w-outdoor@1", "door"], ["1F-C07", "1F-W16", "door"], ["1F-C07", "1F-W16", "door"], ["1F-C07", "1F-W16", "door"], ["1F-C07", "1F-W16", "door"], ["1F-C07", "1F-W16", "door"], ["1F-C07", "1F-W16", "door"], ["1F-C08", "1F-W17", "door"], ["1F-C11", "1F-W18", "door"], ["1F-R01", "1F-C01", "adj"], ["1F-R02", "1F-C01", "adj"], ["1F-R03", "1F-C01", "adj"], ["1F-R04", "1F-C03", "adj"], ["1F-R05", "1F-C03", "adj"], ["1F-R06", "1F-C03", "adj"], ["1F-R07", "1F-C03", "adj"], ["1F-R08", "1F-C03", "adj"], ["1F-R09", "1F-C03", "adj"], ["1F-R09", "1F-C04", "adj"], ["1F-R10", "1F-C03", "adj"], ["1F-R10", "1F-C06", "adj"], ["1F-R11", "1F-C03", "adj"], ["1F-R11", "1F-C06", "adj"], ["1F-R12", "1F-C03", "adj"], ["1F-R12", "1F-C06", "adj"], ["1F-R13", "1F-C03", "adj"], ["1F-R13", "1F-C06", "adj"], ["1F-R14", "1F-C03", "adj"], ["1F-R14", "1F-C06", "adj"], ["1F-R15", "1F-C12", "adj"], ["1F-R16", "1F-C11", "adj"], ["1F-R19", "1F-C08", "adj"], ["1F-R20", "1F-C08", "adj"], ["1F-R21", "1F-C08", "adj"], ["1F-R22", "1F-C08", "adj"], ["1F-R22", "1F-C09", "adj"], ["1F-R23", "1F-C09", "adj"], ["1F-R23", "1F-C10", "adj"], ["1F-C01", "1F-C02", "adj"], ["1F-C02", "1F-C03", "adj"], ["1F-C02", "1F-C04", "adj"], ["1F-C02", "ST-center@1", "adj"], ["1F-C03", "1F-C04", "adj"], ["1F-C03", "1F-C05", "adj"], ["1F-C03", "1F-C06", "adj"], ["1F-C03", "1F-C07", "adj"], ["1F-C03", "ST-center@1", "adj"], ["1F-C03", "ST-kasei@1", "adj"], ["1F-C05", "1F-C06", "adj"], ["1F-C05", "ST-kasei@1", "adj"], ["1F-C06", "ST-kasei@1", "adj"], ["1F-C08", "1F-C09", "adj"], ["1F-C08", "ST-east-front@1", "adj"], ["1F-C09", "1F-C10", "adj"], ["1F-C11", "1F-C12", "adj"], ["1F-C11", "ST-west-front@1", "adj"], ["1F-C12", "ST-west-front@1", "adj"], ["1F-W13", "1F-W14", "adj"], ["1F-W15", "1F-W16", "adj"], ["1F-W15", "1F-W18", "adj"], ["1F-W16", "1F-W17", "adj"], ["1F-W16", "1F-W18", "adj"], ["1F-W19", "ST-ne-outdoor@1", "adj"], ["2F-C01", "2F-W12", "door"], ["2F-C01", "2F-W12", "door"], ["2F-C03", "ST-w-outdoor@2", "door"], ["2F-R01", "2F-C01", "adj"], ["2F-R02", "2F-C01", "adj"], ["2F-R03", "2F-C01", "adj"], ["2F-R04", "2F-C03", "adj"], ["2F-R05", "2F-C03", "adj"], ["2F-R06", "2F-C03", "adj"], ["2F-R07", "2F-C03", "adj"], ["2F-R08", "2F-C03", "adj"], ["2F-R09", "2F-C03", "adj"], ["2F-R10", "2F-C03", "adj"], ["2F-R10", "2F-C05", "adj"], ["2F-R11", "2F-C03", "adj"], ["2F-R11", "2F-C05", "adj"], ["2F-R12", "2F-C03", "adj"], ["2F-R12", "2F-C05", "adj"], ["2F-R13", "2F-C10", "adj"], ["2F-R14", "2F-C06", "adj"], ["2F-R14", "2F-C10", "adj"], ["2F-R14", "2F-C11", "adj"], ["2F-R15", "2F-C07", "adj"], ["2F-R15", "2F-C09", "adj"], ["2F-R16", "2F-C09", "adj"], ["2F-R17", "2F-C09", "adj"], ["2F-C01", "2F-C02", "adj"], ["2F-C02", "2F-C03", "adj"], ["2F-C02", "ST-center@2", "adj"], ["2F-C03", "2F-C04", "adj"], ["2F-C03", "2F-C05", "adj"], ["2F-C03", "2F-C06", "adj"], ["2F-C03", "ST-center@2", "adj"], ["2F-C03", "ST-kasei@2", "adj"], ["2F-C04", "2F-C05", "adj"], ["2F-C04", "ST-kasei@2", "adj"], ["2F-C05", "ST-kasei@2", "adj"], ["2F-C06", "2F-C07", "adj"], ["2F-C06", "2F-C11", "adj"], ["2F-C07", "2F-C08", "adj"], ["2F-C08", "2F-C09", "adj"], ["2F-C09", "ST-east-front@2", "adj"], ["2F-C10", "2F-C11", "adj"], ["2F-C10", "ST-west-front@2", "adj"], ["2F-W12", "ST-ne-outdoor@2", "adj"], ["3F-C01", "3F-W10", "door"], ["3F-C01", "3F-W10", "door"], ["3F-C03", "ST-w-outdoor@3", "door"], ["3F-R01", "3F-C01", "adj"], ["3F-R02", "3F-C01", "adj"], ["3F-R03", "3F-C01", "adj"], ["3F-R04", "3F-C03", "adj"], ["3F-R05", "3F-C03", "adj"], ["3F-R06", "3F-C03", "adj"], ["3F-R07", "3F-C03", "adj"], ["3F-R08", "3F-C03", "adj"], ["3F-R09", "3F-C03", "adj"], ["3F-R10", "3F-C03", "adj"], ["3F-R10", "3F-C05", "adj"], ["3F-R11", "3F-C03", "adj"], ["3F-R11", "3F-C05", "adj"], ["3F-R12", "3F-C03", "adj"], ["3F-R12", "3F-C05", "adj"], ["3F-R13", "3F-C03", "adj"], ["3F-R13", "3F-C05", "adj"], ["3F-R14", "3F-C08", "adj"], ["3F-R15", "3F-C09", "adj"], ["3F-R16", "3F-C06", "adj"], ["3F-R16", "3F-C07", "adj"], ["3F-R17", "3F-C07", "adj"], ["3F-R18", "3F-C07", "adj"], ["3F-R19", "3F-C07", "adj"], ["3F-R20", "3F-C07", "adj"], ["3F-R21", "3F-C07", "adj"], ["3F-R22", "3F-C07", "adj"], ["3F-C01", "3F-C02", "adj"], ["3F-C02", "3F-C03", "adj"], ["3F-C02", "ST-center@3", "adj"], ["3F-C03", "3F-C04", "adj"], ["3F-C03", "3F-C05", "adj"], ["3F-C03", "3F-C06", "adj"], ["3F-C03", "ST-center@3", "adj"], ["3F-C03", "ST-kasei@3", "adj"], ["3F-C04", "3F-C05", "adj"], ["3F-C04", "ST-kasei@3", "adj"], ["3F-C05", "ST-kasei@3", "adj"], ["3F-C06", "3F-C07", "adj"], ["3F-C07", "3F-C09", "adj"], ["3F-C07", "ST-east-front@3", "adj"], ["3F-C08", "3F-C09", "adj"], ["3F-C08", "ST-west-front@3", "adj"], ["3F-C09", "ST-west-front@3", "adj"], ["3F-W10", "ST-ne-outdoor@3", "adj"], ["4F-R01", "4F-C02", "adj"], ["4F-R02", "4F-C02", "adj"], ["4F-R03", "4F-C01", "adj"], ["4F-R04", "4F-C01", "adj"], ["4F-R05", "4F-C01", "adj"], ["4F-R06", "4F-C01", "adj"], ["4F-R07", "4F-C01", "adj"], ["4F-R08", "4F-C01", "adj"], ["4F-R09", "4F-C01", "adj"], ["4F-R10", "4F-C01", "adj"], ["4F-C01", "4F-C02", "adj"], ["4F-C01", "ST-east-front@4", "adj"], ["4F-C02", "ST-west-front@4", "adj"], ["1F-R17", "1F-W15", "adj"], ["1F-R17", "1F-W18", "adj"], ["1F-R18", "1F-W15", "adj"], ["1F-R18", "1F-W16", "adj"], ["1F-R18", "1F-W18", "adj"], ["ST-center@1", "ST-center@2", "stairs"], ["ST-center@2", "ST-center@3", "stairs"], ["ST-kasei@1", "ST-kasei@2", "stairs"], ["ST-kasei@2", "ST-kasei@3", "stairs"], ["ST-west-front@1", "ST-west-front@2", "stairs"], ["ST-west-front@2", "ST-west-front@3", "stairs"], ["ST-west-front@3", "ST-west-front@4", "stairs"], ["ST-east-front@1", "ST-east-front@2", "stairs"], ["ST-east-front@2", "ST-east-front@3", "stairs"], ["ST-east-front@3", "ST-east-front@4", "stairs"], ["ST-ne-outdoor@1", "ST-ne-outdoor@2", "stairs"], ["ST-ne-outdoor@2", "ST-ne-outdoor@3", "stairs"], ["ST-w-outdoor@1", "ST-w-outdoor@2", "stairs"], ["ST-w-outdoor@2", "ST-w-outdoor@3", "stairs"], ["UP-1:1", "1F-W13", "underpass"], ["UP-1:1", "UP-1:-1", "underpass"], ["1F-C07", "1F-W16", "adj"], ["1F-X01", "1F-X03", "adj"], ["1F-X01", "1F-X04", "adj"], ["1F-X02", "1F-X04", "adj"], ["1F-X03", "1F-G20", "adj"], ["1F-X03", "1F-G21", "adj"], ["1F-X03", "1F-X04", "adj"], ["1F-X03", "1F-X10", "adj"], ["1F-X10", "1F-G20", "adj"], ["1F-X10", "1F-G21", "adj"], ["1F-X10", "1F-X11", "adj"], ["1F-X11", "1F-G20", "adj"], ["1F-X11", "1F-G21", "adj"], ["1F-X12", "1F-W15", "adj"], ["1F-X12", "1F-G22", "adj"], ["1F-X12", "1F-X13", "adj"], ["1F-X12", "1F-X14", "adj"], ["1F-X13", "1F-G22", "adj"], ["1F-X14", "1F-W15", "adj"], ["1F-X14", "1F-G22", "adj"], ["UP-1:-1", "1F-X12", "underpass"], ["UP-1:-1", "1F-X14", "underpass"], ["1F-R06", "1F-X11", "adj"], ["1F-R05", "1F-X11", "adj"], ["1F-R04", "1F-X11", "adj"], ["1F-X15", "1F-W13", "adj"], ["1F-X15", "1F-X03", "adj"], ["1F-X15", "1F-X04", "adj"]], "doors": [{"id": "1F-D01", "level": 1, "shape": "bar", "rect": [591, 141, 5, 24], "kind": "ドア", "between": ["1F-C01", "1F-W13"]}, {"id": "1F-D02", "level": 1, "shape": "bar", "rect": [902, 143, 5, 24], "kind": "ドア", "between": ["1F-C01", "1F-W19"]}, {"id": "1F-D03", "level": 1, "shape": "bar", "rect": [591, 171, 5, 24], "kind": "ドア", "between": ["1F-C01", "1F-W13"]}, {"id": "1F-D04", "level": 1, "shape": "bar", "rect": [902, 171, 5, 25], "kind": "ドア", "between": ["1F-C01", "1F-W19"]}, {"id": "1F-D05", "level": 1, "shape": "arc", "rect": [665, 205, 24, 24], "kind": "押戸・引き戸", "between": ["1F-C02", "1F-W14"]}, {"id": "1F-D06", "level": 1, "shape": "arc", "rect": [666, 230, 24, 24], "kind": "押戸・引き戸", "between": ["1F-C02", "1F-W14"]}, {"id": "1F-D07", "level": 1, "shape": "bar", "rect": [843, 400, 24, 5], "kind": "ドア", "between": ["1F-C03"]}, {"id": "1F-D08", "level": 1, "shape": "bar", "rect": [872, 400, 24, 5], "kind": "ドア", "between": ["1F-C03"]}, {"id": "1F-D09", "level": 1, "shape": "bar", "rect": [1324, 452, 5, 24], "kind": "ドア", "between": ["1F-C05"]}, {"id": "1F-D10", "level": 1, "shape": "bar", "rect": [635, 453, 24, 5], "kind": "ドア", "between": ["1F-C03", "1F-W15", "1F-X12"]}, {"id": "1F-D11", "level": 1, "shape": "bar", "rect": [665, 453, 24, 5], "kind": "ドア", "between": ["1F-C03", "1F-W15"]}, {"id": "1F-D12", "level": 1, "shape": "bar", "rect": [909, 454, 24, 5], "kind": "ドア", "between": ["1F-C03", "1F-C06", "1F-C07", "1F-W17"]}, {"id": "1F-D13", "level": 1, "shape": "bar", "rect": [939, 454, 24, 5], "kind": "ドア", "between": ["1F-C03", "1F-C06", "1F-W17"]}, {"id": "1F-D14", "level": 1, "shape": "arc", "rect": [62, 457, 24, 24], "kind": "押戸・引き戸", "between": ["1F-C03", "1F-X12", "1F-X13", "ST-w-outdoor@1"]}, {"id": "1F-D15", "level": 1, "shape": "bar", "rect": [1324, 482, 5, 24], "kind": "ドア", "between": ["1F-C05"]}, {"id": "1F-D16", "level": 1, "shape": "bar", "rect": [699, 530, 24, 5], "kind": "ドア", "between": ["1F-C07", "1F-W16"]}, {"id": "1F-D17", "level": 1, "shape": "bar", "rect": [728, 530, 24, 5], "kind": "ドア", "between": ["1F-C07", "1F-W16"]}, {"id": "1F-D18", "level": 1, "shape": "bar", "rect": [776, 530, 24, 5], "kind": "ドア", "between": ["1F-C07", "1F-W16"]}, {"id": "1F-D19", "level": 1, "shape": "bar", "rect": [805, 530, 24, 5], "kind": "ドア", "between": ["1F-C07", "1F-W16"]}, {"id": "1F-D20", "level": 1, "shape": "bar", "rect": [852, 530, 24, 5], "kind": "ドア", "between": ["1F-C07", "1F-W16"]}, {"id": "1F-D21", "level": 1, "shape": "bar", "rect": [881, 530, 24, 5], "kind": "ドア", "between": ["1F-C07", "1F-W16"]}, {"id": "1F-D22", "level": 1, "shape": "bar", "rect": [955, 718, 5, 24], "kind": "ドア", "between": ["1F-C08", "1F-W17"]}, {"id": "2F-D01", "level": 2, "shape": "bar", "rect": [902, 141, 5, 24], "kind": "ドア", "between": ["2F-C01", "2F-W12"]}, {"id": "2F-D02", "level": 2, "shape": "bar", "rect": [902, 170, 5, 25], "kind": "ドア", "between": ["2F-C01", "2F-W12"]}, {"id": "2F-D03", "level": 2, "shape": "arc", "rect": [62, 457, 24, 24], "kind": "押戸・引き戸", "between": ["2F-C03", "ST-w-outdoor@2"]}, {"id": "3F-D01", "level": 3, "shape": "bar", "rect": [902, 143, 5, 24], "kind": "ドア", "between": ["3F-C01", "3F-W10"]}, {"id": "3F-D02", "level": 3, "shape": "bar", "rect": [902, 171, 5, 25], "kind": "ドア", "between": ["3F-C01", "3F-W10"]}, {"id": "3F-D03", "level": 3, "shape": "arc", "rect": [62, 457, 24, 24], "kind": "押戸・引き戸", "between": ["3F-C03", "ST-w-outdoor@3"]}, {"id": "1F-D23", "level": 1, "shape": "bar", "rect": [590, 706, 5, 24], "manual": true, "kind": "ドア", "between": ["1F-C11", "1F-W18"]}, {"id": "1F-D24", "level": 1, "shape": "bar", "rect": [-62, 19, 12, 4], "kind": "ドア", "supplement": true, "between": ["1F-X01"]}, {"id": "1F-D25", "level": 1, "shape": "bar", "rect": [-47, 19, 12, 4], "kind": "ドア", "supplement": true, "between": ["1F-X01"]}, {"id": "1F-D26", "level": 1, "shape": "bar", "rect": [-3, 19, 12, 4], "kind": "ドア", "supplement": true, "between": ["1F-X01", "1F-X03"]}, {"id": "1F-D27", "level": 1, "shape": "bar", "rect": [12, 19, 12, 4], "kind": "ドア", "supplement": true, "between": ["1F-X01", "1F-X03"]}, {"id": "1F-D28", "level": 1, "shape": "bar", "rect": [139, 19, 12, 4], "kind": "ドア", "supplement": true, "between": ["1F-X01", "1F-X03"]}, {"id": "1F-D29", "level": 1, "shape": "bar", "rect": [154, 19, 12, 4], "kind": "ドア", "supplement": true, "between": ["1F-X01", "1F-X03"]}, {"id": "1F-D30", "level": 1, "shape": "bar", "rect": [276, 19, 12, 4], "kind": "ドア", "supplement": true, "between": ["1F-X01", "1F-X03"]}, {"id": "1F-D31", "level": 1, "shape": "bar", "rect": [290, 19, 12, 4], "kind": "ドア", "supplement": true, "between": ["1F-X01", "1F-X03"]}, {"id": "1F-D32", "level": 1, "shape": "bar", "rect": [375, -100, 5, 12], "kind": "ドア", "supplement": true, "between": ["1F-X01", "1F-X02", "1F-X04"]}, {"id": "1F-D33", "level": 1, "shape": "bar", "rect": [375, -86, 5, 12], "kind": "ドア", "supplement": true, "between": ["1F-X01", "1F-X04"]}]}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const D=JSON.parse(document.getElementById('campus').textContent);
+const S=1/12, FH=3.6, OX=728, OZ=408, ROOMH=3.0;
+const cv=document.getElementById('cv');
+const R=new THREE.WebGLRenderer({canvas:cv,antialias:true});R.setPixelRatio(Math.min(devicePixelRatio,2));
+const sc=new THREE.Scene(), cam=new THREE.PerspectiveCamera(45,1,.5,600);
+const dark=matchMedia('(prefers-color-scheme:dark)').matches;
+sc.background=new THREE.Color(dark?0x161c24:0xeef2f6);
+sc.add(new THREE.HemisphereLight(0xffffff,0x556677,.9));
+const dl=new THREE.DirectionalLight(0xffffff,.6);dl.position.set(30,60,20);sc.add(dl);
+const COL={r:0x767676,c:0xc9d1da,b:0x38b5ff,o:0xffbb55,p:0xc96ee8,g:0xaebfae};
+const groups=[], labels=[], sgs=[], UD=2.8;
+// 階段(上り): 折り返し階段。d=踊り場のある方向(N上/S下/E右/W左)。往路と復路の2レーン+踊り場
+function stairs(g,a,col,d){const [x,y,w,h]=a;d=d||(h>=w?'S':'E');
+ const vz=d==='N'||d==='S',rev=d==='N'||d==='W',L=vz?h:w,Sw=vz?w:h,N=8,ld=L*.2,fl=L-ld;
+ const put=(l0,l1,s0,s1,hh)=>{if(rev){const t=L-l1;l1=L-l0;l0=t}
+  vz?box(g,x+s0,y+l0,s1-s0,l1-l0,0,hh,col,1):box(g,x+l0,y+s0,l1-l0,s1-s0,0,hh,col,1)};
+ for(let i=0;i<N;i++){
+  put(i*fl/N,(i+1)*fl/N,0,Sw/2,(i+1)/N*FH/2);
+  put(i*fl/N,(i+1)*fl/N,Sw/2,Sw,FH/2+(N-i)/N*FH/2)}
+ put(fl,L,0,Sw,FH/2)}
+// 地下道入口: 地上から下りる階段(dir=1:+z方向へ下る / -1:-z方向へ下る)
+function downStairs(g,a,col){const [x,y,w,h,dir]=a,N=10;
+ for(let i=0;i<N;i++){const j=dir>0?i:N-1-i,top=-(i+1)/N*UD,hh=Math.max(.05,UD+top);
+  box(g,x,y+j*h/N,w,h/N,-UD,hh,col,1)}}
+function box(g,x,y,w,h,y0,hh,col,op){
+ const m=new THREE.Mesh(new THREE.BoxGeometry(w*S,hh,h*S),new THREE.MeshLambertMaterial({color:col,transparent:op<1,opacity:op}));
+ m.position.set((x+w/2-OX)*S,y0+hh/2,(y+h/2-OZ)*S);g.add(m);return m}
+function label(g,text,x,y,w,h,y0){
+ const c=document.createElement('canvas');c.width=256;c.height=64;const t=c.getContext('2d');
+ let fs=38;t.font='bold '+fs+'px sans-serif';while(t.measureText(text).width>244&&fs>12){fs--;t.font='bold '+fs+'px sans-serif'}
+ t.textAlign='center';t.textBaseline='middle';t.lineWidth=6;t.strokeStyle='#000c';t.fillStyle='#fff';
+ t.strokeText(text,128,34);t.fillText(text,128,34);
+ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false,transparent:true}));
+ const sw=Math.max(4,Math.min(w*S,8));s.scale.set(sw,sw/4,1);s.renderOrder=9;
+ s.position.set((x+w/2-OX)*S,y0+ROOMH+.6,(y+h/2-OZ)*S);g.add(s);labels.push(s)}
+const ceils=[],doorsM=[];
+function roomBox(g,a){const [x,y,w,h,n]=a,t=3.5;
+ box(g,x,y,w,h,0,.12,0xe3ddd0,1);
+ [[x,y,w,t],[x,y+h-t,w,t],[x,y+t,t,h-2*t],[x+w-t,y+t,t,h-2*t]].forEach(r=>box(g,...r,0,ROOMH,COL.r,1));
+ const c=box(g,x,y,w,h,ROOMH,.15,0x8899aa,.3);c.visible=false;ceils.push(c);
+ const e=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w*S,ROOMH,h*S)),new THREE.LineBasicMaterial({color:0x222222}));
+ e.position.set((x+w/2-OX)*S,ROOMH/2,(y+h/2-OZ)*S);g.add(e);label(g,n,x,y,w,h,0)}
+D.floors.forEach((fl,i)=>{
+ const g=new THREE.Group();g.userData.base=i*FH;sc.add(g);groups.push(g);
+ fl.walk.forEach(w=>{const r=w.rect,gr=w.type==='ground';
+  if(w.diag){const [A,B,wd]=w.diag,dx=B[0]-A[0],dz=B[1]-A[1],m=new THREE.Mesh(new THREE.BoxGeometry((Math.hypot(dx,dz)+20)*S,.25,wd*S),new THREE.MeshLambertMaterial({color:COL.b}));
+   m.position.set(((A[0]+B[0])/2-OX)*S,.125,((A[1]+B[1])/2-OZ)*S);m.rotation.y=-Math.atan2(dz,dx);g.add(m);return}
+  box(g,...r,0,gr?(w.h||(i?.2:.35)):.25,gr?COL.g:w.type==='walkway'?COL.b:COL.c,1);
+  if(w.name)label(g,w.name,...r,-ROOMH+1.2)});
+ fl.rooms.forEach(r=>roomBox(g,[...r.rect,r.name]));
+ (D.doors||[]).filter(d=>d.level===fl.level).forEach(d=>doorsM.push(box(g,...d.rect,0,2.2,d.shape==='arc'?0x2a9d8f:0xc47a2c,1)));
+ const sg=new THREE.Group();g.add(sg);sgs.push(sg);
+ D.stairs.forEach(st=>{const a=st.floors[fl.level];if(!a)return;const col=st.type==='indoor'?COL.o:COL.p;
+  st.floors[fl.level+1]?stairs(sg,a,col,st.landing):box(g,...a,0,.25,col,1)});
+ D.voids.forEach(v=>v.floors.includes(fl.level)&&label(g,v.label,...v.rect,-ROOMH+1.2));
+ const u=D.underpass;if(u.level===fl.level){u.entrances.forEach(e=>downStairs(g,[...e.rect,e.dir],COL.p));
+  box(g,...u.tunnel,-UD,2.4,COL.p,.45);label(g,u.label,...u.tunnel,-ROOMH-1.2)}
+});
+// 簡易オービットカメラ
+let th=.6,ph=.95,rad=95,tg=new THREE.Vector3(0,5,0);
+function upd(){cam.position.set(tg.x+rad*Math.sin(ph)*Math.sin(th),tg.y+rad*Math.cos(ph),tg.z+rad*Math.sin(ph)*Math.cos(th));cam.lookAt(tg)}
+const ptr=new Map(),cl=v=>Math.max(15,Math.min(250,v));
+// 平行移動: 画面上で指/カーソルについてくる(グラブ式)
+function pan(dx,dy){const k=rad*.0016,c=Math.max(.35,Math.cos(ph));
+ tg.x-=Math.cos(th)*dx*k;tg.z+=Math.sin(th)*dx*k;tg.x-=Math.sin(th)*dy*k/c;tg.z-=Math.cos(th)*dy*k/c}
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);ptr.set(e.pointerId,{x:e.clientX,y:e.clientY,b:e.button});if(e.button===1)e.preventDefault()});
+cv.addEventListener('mousedown',e=>{if(e.button===1)e.preventDefault()});
+['pointerup','pointercancel'].forEach(t=>cv.addEventListener(t,e=>ptr.delete(e.pointerId)));
+cv.addEventListener('pointermove',e=>{
+ const p=ptr.get(e.pointerId);if(!p)return;
+ if(ptr.size>=2){ // 2本指: 拡大縮小 + 平行移動
+  const o=[...ptr.values()].find(v=>v!==p),mx0=(p.x+o.x)/2,my0=(p.y+o.y)/2,d0=Math.hypot(p.x-o.x,p.y-o.y);
+  p.x=e.clientX;p.y=e.clientY;const d1=Math.hypot(p.x-o.x,p.y-o.y);
+  if(d0>0&&d1>0)rad=cl(rad*d0/d1);pan((p.x+o.x)/2-mx0,(p.y+o.y)/2-my0);upd();return}
+ const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
+ if(p.b===1||e.shiftKey)pan(dx,dy);                       // 中ボタン(またはShift)+ドラッグ: 平行移動
+ else{th-=dx*.006;ph=Math.max(.05,Math.min(1.5,ph-dy*.006))} // 左/右ドラッグ・1本指: 回転
+ upd()});
+cv.addEventListener('wheel',e=>{e.preventDefault();rad=Math.max(15,Math.min(250,rad*(1+e.deltaY*.001)));upd()},{passive:false});
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+// UI
+const fl=document.getElementById('fl');let sel=0;
+['全階','1F','2F','3F','4F'].forEach((t,i)=>{const b=document.createElement('button');b.textContent=t;b.onclick=()=>{sel=i;apply()};fl.appendChild(b)});
+const ex=document.getElementById('ex');
+function apply(){
+ [...fl.children].forEach((b,i)=>b.classList.toggle('on',i===sel));
+ groups.forEach((g,i)=>{g.visible=sel===0||sel===i+1;g.position.y=g.userData.base*(1+ +ex.value/FH*.0)+i*+ex.value})
+ labels.forEach(s=>s.visible=document.getElementById('lb').checked);
+ ceils.forEach(c=>c.visible=document.getElementById('ce').checked);
+ doorsM.forEach(m=>m.visible=document.getElementById('dr').checked);
+ sgs.forEach(s=>s.scale.y=(FH+ +ex.value)/FH)}
+ex.oninput=apply;document.getElementById('lb').onchange=apply;document.getElementById('ce').onchange=apply;document.getElementById('dr').onchange=apply;
+document.getElementById('v1').onclick=()=>{th=.6;ph=.95;rad=95;upd()};
+document.getElementById('v2').onclick=()=>{th=0;ph=.05;rad=100;upd()};
+// ---- ルート検索 ----
+const NODE={},ADJ={},cx=r=>[r[0]+r[2]/2,r[1]+r[3]/2],dd=(p,q)=>Math.hypot(p[0]-q[0],p[1]-q[1])*S,RC=0xff3b30;
+D.floors.forEach(f=>{f.rooms.forEach(r=>NODE[r.id]={k:'room',name:r.name,rect:r.rect,L:f.level});f.walk.forEach(w=>NODE[w.id]={k:w.type,name:w.name||'',rect:w.rect,L:f.level,roof:w.roof,blocked:w.blocked,diag:w.diag})});
+D.stairs.forEach(st=>Object.entries(st.floors).forEach(([l,r])=>NODE[st.id+'@'+l]={k:'stair-'+st.type,name:st.label,rect:r,L:+l,quiet:st.quiet}));
+D.underpass.entrances.forEach(e=>NODE['UP-1:'+e.dir]={k:'underpass',name:D.underpass.label,rect:e.rect,L:1,quiet:D.underpass.quiet});
+const addE=(a,b,c,via,t)=>{(ADJ[a]=ADJ[a]||[]).push({to:b,c,via,t});(ADJ[b]=ADJ[b]||[]).push({to:a,c,via,t})};
+D.links.forEach(([a,b,t])=>{const A=NODE[a],B=NODE[b];if(!A||!B||t==='door')return;
+ if(t==='stairs')return addE(a,b,9,null,t);
+ if(t==='underpass'&&A.k===B.k)return addE(a,b,dd(cx(A.rect),cx(B.rect)),null,t);
+ const x0=Math.max(A.rect[0],B.rect[0]),x1=Math.min(A.rect[0]+A.rect[2],B.rect[0]+B.rect[2]),y0=Math.max(A.rect[1],B.rect[1]),y1=Math.min(A.rect[1]+A.rect[3],B.rect[1]+B.rect[3]),v=[(x0+x1)/2,(y0+y1)/2];
+ addE(a,b,dd(cx(A.rect),v)+dd(v,cx(B.rect)),v,t)});
+(D.doors||[]).forEach(d=>{const bt=(d.between||[]).filter(k=>NODE[k]),v=cx(d.rect);
+ for(let i=0;i<bt.length;i++)for(let j=i+1;j<bt.length;j++)addE(bt[i],bt[j],dd(cx(NODE[bt[i]].rect),v)+dd(v,cx(NODE[bt[j]].rect)),v,'door')});
+const isOut=k=>['walkway','ground','stair-outdoor','underpass'].includes(NODE[k].k)&&!NODE[k].roof;
+function dij(s,g,o){const dist={[s]:0},prev={},done={};
+ for(;;){let u=null;for(const k in dist)if(!done[k]&&(u===null||dist[k]<dist[u]))u=k;if(u===null)return null;if(u===g)break;done[u]=1;if((NODE[u].k==='room'||NODE[u].blocked)&&u!==s)continue; // 教室は通り抜け不可
+  for(const e of ADJ[u]||[]){let c=e.c;if(isOut(u)||isOut(e.to))c*=o.out;
+   if(o.quiet){if(e.t==='stairs'||e.t==='underpass'){if(NODE[u].quiet||NODE[e.to].quiet)c*=.3;else if(e.t==='stairs')c+=200}}
+   const nd=dist[u]+c;if(dist[e.to]===undefined||nd<dist[e.to]){dist[e.to]=nd;prev[e.to]={u,e}}}}
+ const nodes=[g],edges=[];let k=g;while(k!==s){const p=prev[k];edges.unshift(p.e);nodes.unshift(p.u);k=p.u}
+ return {nodes,edges,len:edges.reduce((a,e)=>a+e.c,0)}}
+const VAR=[['最短',{out:1}],['屋外を避ける',{out:6}],['空いている',{out:1,quiet:1}]];
+function findRoutes(a,b,v){const out=[];VAR.forEach(([n,op])=>{let r=dij(a,b,op);
+ if(v&&v!==a&&v!==b){const r1=dij(a,v,op),r2=dij(v,b,op);r=r1&&r2?{nodes:r1.nodes.concat(r2.nodes.slice(1)),edges:r1.edges.concat(r2.edges),len:r1.len+r2.len,via:v}:null}
+ if(!r)return;r.name=n;const key=r.nodes.join();const p=out.find(x=>x.key===key);if(p)p.name+='・'+n;else{r.key=key;out.push(r)}});return out}
+let ro=[];const W=(p,y)=>new THREE.Vector3((p[0]-OX)*S,y,(p[1]-OZ)*S),BC=0x1a73e8;
+function tube(par,pts,k,on){if(pts.length<2)return;const cp=new THREE.CurvePath();for(let i=0;i<pts.length-1;i++)cp.add(new THREE.LineCurve3(pts[i],pts[i+1]));
+ (on?[[.7,0xffffff,1,10],[.42,BC,1,11]]:[[.5,BC,.28,8]]).forEach(([rd,col,op,od])=>{const m=new THREE.Mesh(new THREE.TubeGeometry(cp,pts.length*8,rd,8,false),new THREE.MeshBasicMaterial({color:col,depthTest:false,transparent:op<1,opacity:op}));m.renderOrder=od;m.userData.ri=k;par.add(m);ro.push(m)})}
+function dot(par,p,col){[[1.5,0xffffff,12],[1,col,13]].forEach(([rd,c,od])=>{const m=new THREE.Mesh(new THREE.SphereGeometry(rd,14,14),new THREE.MeshBasicMaterial({color:c,depthTest:false}));m.position.copy(W(p,1.4));m.renderOrder=od;par.add(m);ro.push(m)})}
+// 折り返し階段の経路: 下階の乗り口→踊り場→上階の降り口(階段の端)
+function flight(sid,lo,up){const st=D.stairs.find(x=>x.id===sid),a=st.floors[lo],d=st.landing,vz=d==='N'||d==='S',rev=d==='N'||d==='W',L=vz?a[3]:a[2],Sw=vz?a[2]:a[3],ld=L*.2,fl=L-ld,m=Math.min(3,L*.05);
+ const P=(l,s)=>{const q=rev?L-l:l;return vz?[a[0]+s,a[1]+q]:[a[0]+q,a[1]+s]},H=FH/2+.8;
+ const pts=[[P(m,Sw/4),.8],[P(fl,Sw/4),H],[P(fl+ld/2,Sw/4),H],[P(fl+ld/2,Sw*3/4),H],[P(fl,Sw*3/4),H],[P(m,Sw*3/4),FH+.8]];
+ return {pts,S:up?pts[0][0]:pts[5][0],E:up?pts[5][0]:pts[0][0]}}
+// 廊下・通路は長辺方向の中心線を通る
+const inside=(n,P,Q)=>{if(n.k==='room'||n.k.startsWith('stair'))return [P,Q];
+ if(n.diag){const [A,B]=n.diag,dx=B[0]-A[0],dz=B[1]-A[1],l2=dx*dx+dz*dz,pj=p=>{const t=Math.max(0,Math.min(1,((p[0]-A[0])*dx+(p[1]-A[1])*dz)/l2));return [A[0]+t*dx,A[1]+t*dz]};return [P,pj(P),pj(Q),Q]}const [x,y,w,h]=n.rect,c=cx(n.rect);if(Math.max(w,h)/Math.min(w,h)<1.5)return [P,Q];
+ return w>=h?[P,[P[0],c[1]],[Q[0],c[1]],Q]:[P,[c[0],P[1]],[c[0],Q[1]],Q]};
+function drawRoute(r,k,on){const nd=r.nodes.map(x=>NODE[x]),E=r.edges,all=[];
+ let L=nd[0].L,cur=[],ent=cx(nd[0].rect);if(on){dot(groups[L-1],ent,BC);if(r.via)dot(groups[NODE[r.via].L-1],cx(NODE[r.via].rect),0xf39c12)}
+ const push=a=>a.forEach(p=>{all.push(p);const l=cur[cur.length-1];if(!l||l[0]!==p[0]||l[1]!==p[1])cur.push(p)});
+ const fl=()=>{tube(groups[L-1],cur.map(p=>W(p,.8)),k,on);cur=[]};
+ for(let i=0;i<nd.length;i++){const n=nd[i],e=E[i];
+  if(e&&e.t==='stairs'){const b=nd[i+1],lo=Math.min(n.L,b.L),up=b.L>n.L,g=flight(r.nodes[i].split('@')[0],lo,up);
+   push(inside(n,ent,g.S));fl();tube(sgs[lo-1],(up?g.pts:g.pts.slice().reverse()).map(([p,y])=>W(p,y)),k,on);L=b.L;ent=g.E;continue}
+  const Q=e?(e.via||cx(n.rect)):cx(n.rect);push(inside(n,ent,Q));ent=Q}
+ fl();if(on)dot(groups[L-1],ent,0xe74c3c);return {all,L0:nd[0].L,L1:L}}
+function fit(o){const xs=o.all.map(p=>p[0]),zs=o.all.map(p=>p[1]),sp=Math.max(Math.max(...xs)-Math.min(...xs),Math.max(...zs)-Math.min(...zs))*S;
+ sel=0;apply();tg.set(((Math.min(...xs)+Math.max(...xs))/2-OX)*S,(groups[o.L0-1].position.y+groups[o.L1-1].position.y)/2,((Math.min(...zs)+Math.max(...zs))/2-OZ)*S);rad=Math.max(35,Math.min(140,sp*1.4+30));upd()}
+function steps(r){const nd=r.nodes.map(k=>NODE[k]),out=[],same=(i,j)=>r.nodes[i].split('@')[0]===r.nodes[j].split('@')[0];
+ for(let i=0;i<nd.length;i++){const n=nd[i];
+  if(n.k.startsWith('stair')&&i+1<nd.length&&nd[i+1].k.startsWith('stair')&&same(i,i+1)){let j=i;while(j+1<nd.length&&nd[j+1].k.startsWith('stair')&&same(j+1,i))j++;
+   out.push([`${n.name}で${n.L}F→${nd[j].L}F(${nd[j].L>n.L?'上り':'下り'})`,r.nodes[i]]);i=j;continue}
+  const lb=n.k==='room'?`${n.name}(${n.L}F)`:n.k==='corridor'?(n.name||'廊下'):n.k==='walkway'?(n.name||'屋外通路'):n.k==='underpass'?'地下道':n.name||'屋外';
+  if(!out.length||out[out.length-1][0]!==lb)out.push([lb,r.nodes[i]])}
+ return out}
+const fr=document.getElementById('fr'),to=document.getElementById('to'),tabs=document.getElementById('tabs');
+let html='<option value="">選択…</option>';
+D.floors.forEach(f=>{const items=[...f.rooms,...f.walk.filter(w=>w.name)],cnt={},c={};items.forEach(x=>cnt[x.name]=(cnt[x.name]||0)+1);
+ html+=`<optgroup label="${f.id}">`+items.map(x=>{let n=x.name;if(cnt[n]>1){c[n]=(c[n]||0)+1;n+='①②③'[c[n]-1]}return `<option value="${x.id}">${n}</option>`}).join('')+'</optgroup>'});
+fr.innerHTML=to.innerHTML=html;document.getElementById('vi').innerHTML=html.replace('選択…','経由なし');
+let RS=[],RI=0;const vi=document.getElementById('vi');
+function clr(){ro.forEach(o=>o.parent&&o.parent.remove(o));ro=[]}
+function showAll(i,fitF){RI=i;clr();RS.forEach((r,k)=>{if(k!==i)drawRoute(r,k,false)});const r=RS[i],info=drawRoute(r,i,true);
+ [...tabs.children].forEach((b,k)=>b.classList.toggle('on',k===i));
+ document.getElementById('sum').textContent=`約${Math.round(r.len)}m・約${Math.max(1,Math.round(r.len/70))}分`+(RS.length>1?'(薄い線をクリックで切替)':'');
+ const ol=document.getElementById('stp');ol.innerHTML='';steps(r).forEach(([t,id])=>{const li=document.createElement('li');li.textContent=t;li.style.cursor='pointer';
+  li.onclick=()=>{const n=NODE[id],p=cx(n.rect);tg.set((p[0]-OX)*S,groups[n.L-1].position.y,(p[1]-OZ)*S);rad=45;upd()};ol.appendChild(li)});
+ if(fitF)fit(info)}
+function run(){const a=fr.value,b=to.value;tabs.innerHTML='';RS=[];clr();document.getElementById('stp').innerHTML='';if(!a||!b||a===b)return;RS=findRoutes(a,b,vi.value);
+ if(!RS.length){document.getElementById('sum').textContent='経路が見つかりません';return}
+ RS.forEach((r,i)=>{const bt=document.createElement('button');bt.textContent=r.name;bt.onclick=()=>showAll(i,false);tabs.appendChild(bt)});showAll(0,true)}
+const rc=new THREE.Raycaster(),vis=o=>{for(;o;o=o.parent)if(o.visible===false)return false;return true};let dn=[0,0];
+cv.addEventListener('pointerdown',e=>{dn=[e.clientX,e.clientY]});
+cv.addEventListener('pointerup',e=>{if(RS.length<2||Math.hypot(e.clientX-dn[0],e.clientY-dn[1])>6)return;const b=cv.getBoundingClientRect();
+ rc.setFromCamera({x:(e.clientX-b.left)/b.width*2-1,y:-((e.clientY-b.top)/b.height)*2+1},cam);
+ const h=rc.intersectObjects(ro.filter(m=>m.userData.ri!==undefined&&vis(m)),false)[0];if(h&&h.object.userData.ri!==RI)showAll(h.object.userData.ri,false)});
+fr.onchange=to.onchange=vi.onchange=run;document.getElementById('sw').onclick=()=>{const t=fr.value;fr.value=to.value;to.value=t;run()};
+function size(){const w=cv.clientWidth||innerWidth,h=cv.clientHeight||innerHeight;R.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()}
+if(typeof ResizeObserver!=='undefined')new ResizeObserver(size).observe(cv);
+document.getElementById('ut').onclick=()=>document.body.classList.toggle('open');
+let so=false;const stt=document.getElementById('stt');stt.onclick=()=>{so=!so;document.getElementById('rt').classList.toggle('open',so);stt.textContent=so?'道順 ▼':'道順 ▲'};
+addEventListener('resize',size);size();apply();upd();
+(function loop(){requestAnimationFrame(loop);R.render(sc,cam)})();
+</script></body></html>

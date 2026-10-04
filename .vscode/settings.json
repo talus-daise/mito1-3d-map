@@ -1,0 +1,8 @@
+{
+  "chat.tools.terminal.autoApprove": {
+    "/^python -c 'import re,json; s=open\\(\"index\\.html\"\\)\\.read\\(\\); d=json\\.loads\\(re\\.search\\(r\"<script type=\\\\\"application/json\\\\\" id=\\\\\"campus\\\\\">\\(\\.\\*\\?\\)</script>\",s\\)\\.group\\(1\\)\\); \\[print\\(\"\\\\nLEVEL\",f\\[\"level\"\\],f\\[\"id\"\\]\\); print\\(\"rooms:\",json\\.dumps\\(f\\[\"rooms\"\\],ensure_ascii=False\\)\\); print\\(\"walk:\",json\\.dumps\\(f\\[\"walk\"\\],ensure_ascii=False\\)\\) for f in d\\[\"floors\"\\] if f\\[\"level\"\\] in \\(1,3\\)\\]; print\\(\"doors:\",json\\.dumps\\(\\[x for x in d\\[\"doors\"\\] if x\\[\"level\"\\] in \\(1,3\\)\\],ensure_ascii=False\\)\\); print\\(\"stairs:\",json\\.dumps\\(d\\[\"stairs\"\\],ensure_ascii=False\\)\\); print\\(\"links:\",json\\.dumps\\(\\[x for x in d\\[\"links\"\\] if any\\(z\\.startswith\\(\\(\"1F-\",\"3F-\"\\)\\) for z in x\\[:2\\]\\)\\],ensure_ascii=False\\)\\)'$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
+  }
+}
